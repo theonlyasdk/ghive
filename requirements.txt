@@ -1,0 +1,10 @@
+# ghive dependencies
+# Core GUI is built with Python 3 and Tkinter.
+# On Linux, ensure python3-tk is installed:
+#   Ubuntu/Debian: sudo apt install python3-tk
+#   Fedora:        sudo dnf install python3-tkinter
+#   Arch Linux:    sudo pacman -S tk
+
+# Enhanced Markdown rendering for issue threads and comments:
+markdown-it-py>=3.0.0
+Pillow>=10.0.0
