@@ -8,11 +8,12 @@ Inspired by clean desktop utility aesthetics, `ghive` provides a fast, lightweig
 
 - **Repositories & Releases**: Search, filter by visibility/fork, inspect stars/forks/languages, clone locally, sync forks, create new repositories, and manage releases.
   - **Releases & Artifacts**: Detailed releases view, create draft/prerelease releases, edit descriptions, upload assets with live streaming metrics (upload rate, rate acceleration, ETA, and percentage), and download or delete release artifacts.
-- **Issues**: Explore repo issues, filter by state (open/closed), view discussion threads and comments, submit comments, create issues, and toggle state.
+- **Issues**: Explore repo issues, filter by state (open/closed), view Markdown discussion threads with loaded images, open images in a click-to-dismiss viewer, copy comment text or issue links from the right-click menu, submit comments, create issues, and toggle state.
 - **Pull Requests**: Review PRs, inspect unified color-coded git diffs, checkout branches locally, merge PRs (merge, squash, rebase), and create pull requests.
 - **Actions & Workflow Runs**: Monitor CI/CD execution runs, filter by status, view live execution logs with keyword search, rerun, and cancel runs.
 - **Gists**: Browse code snippets, view and edit files with page addition/renaming, copy IDs, create new public or secret gists, and clone gists locally.
-- **Authentication**: Seamless detection of GitHub CLI authentication, token login, and account status indicator in the status bar.
+- **Authentication**: Detect GitHub CLI authentication, log in with a personal access token, and view your GitHub profile, avatar, public repository and follower counts, token scopes, and profile link. Account checks and authentication actions show a loading screen.
+- **Responsive Loading**: Repository, issue, pull request, workflow, and gist tabs load data asynchronously and show a loading state on first use.
 - **External Tool Detection & Audit Logging**: Automatically detects `gh` and `git` binaries with quick download links and full audit logging in `~/.ghive/audit.log`.
 
 ## Dependencies & Installation
@@ -54,7 +55,11 @@ Download installer or install via your preferred package manager:
 
 ## Running the App
 
-Clone the repository and run `ghive.py`:
+Install the Python dependencies, then run `ghive.py`:
+
+```bash
+python -m pip install -r requirements.txt
+```
 
 ### Windows
 ```powershell
