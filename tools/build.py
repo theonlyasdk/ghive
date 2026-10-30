@@ -20,13 +20,17 @@ def build():
     print("=== Building ghive executable ===")
     print(f"Target entry: {entry_point}")
 
-    # Check if pyinstaller is installed
-    if not shutil.which("pyinstaller"):
+    # Ensure PyInstaller is installed
+    try:
+        subprocess.run([sys.executable, "-m", "PyInstaller", "--version"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except (subprocess.CalledProcessError, FileNotFoundError):
         print("PyInstaller not found. Installing via pip...")
         subprocess.run([sys.executable, "-m", "pip", "install", "pyinstaller"], check=True)
 
     cmd = [
-        "pyinstaller",
+        sys.executable,
+        "-m",
+        "PyInstaller",
         "--noconfirm",
         "--onedir",
         "--windowed",
@@ -38,7 +42,7 @@ def build():
     print(f"Executing: {' '.join(cmd)}")
     subprocess.run(cmd, cwd=str(root_dir), check=True)
 
-    print("\n✓ Build completed successfully!")
+    print("\nBuild completed successfully!")
     print(f"Artifacts located in: {dist_dir / 'ghive'}")
 
 
