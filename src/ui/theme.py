@@ -63,6 +63,18 @@ def setup_theme(root: tk.Tk) -> None:
         padding=[10, 4],
     )
 
+    # Destructive actions use a distinct danger treatment
+    style.configure(
+        "Danger.TButton",
+        font=bold_font,
+        padding=[8, 4],
+        foreground="#cf222e",
+    )
+    style.map(
+        "Danger.TButton",
+        foreground=[("disabled", "#8c959f"), ("active", "#a40e26")],
+    )
+
     # Store fonts on root for convenient reuse in dialogs
     root.app_font_base = base_font
     root.app_font_bold = bold_font

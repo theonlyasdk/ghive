@@ -145,7 +145,13 @@ class GistDetailsDialog:
 
         ttk.Button(files_frame, text="+ Add Page", command=self._add_page, width=10).pack(side=tk.LEFT, padx=2)
         ttk.Button(files_frame, text="Rename", command=self._rename_page, width=8).pack(side=tk.LEFT, padx=2)
-        ttk.Button(files_frame, text="Delete", command=self._delete_page, width=7).pack(side=tk.LEFT, padx=2)
+        ttk.Button(
+            files_frame,
+            text="Delete",
+            command=self._delete_page,
+            width=7,
+            style="Danger.TButton",
+        ).pack(side=tk.LEFT, padx=(8, 2))
 
         self.copy_content_btn = ttk.Button(files_frame, text="Copy Content", command=self._copy_content)
         self.copy_content_btn.pack(side=tk.RIGHT)

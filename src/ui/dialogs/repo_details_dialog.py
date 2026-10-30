@@ -238,8 +238,17 @@ class RepoDetailsDialog:
         self.open_rel_web_btn = ttk.Button(self.rel_btn_bar, text="Open in Browser", command=self._open_selected_release_web, state=tk.DISABLED)
         self.open_rel_web_btn.pack(side=tk.LEFT, padx=2)
 
-        self.delete_rel_btn = ttk.Button(self.rel_btn_bar, text="Delete Release...", command=self._delete_selected_release, state=tk.DISABLED)
-        self.delete_rel_btn.pack(side=tk.RIGHT, padx=2)
+        self.delete_rel_btn = ttk.Button(
+            self.rel_btn_bar,
+            text="Delete Release...",
+            command=self._delete_selected_release,
+            state=tk.DISABLED,
+            style="Danger.TButton",
+        )
+        self.delete_rel_btn.pack(side=tk.RIGHT, padx=(8, 2))
+        ttk.Separator(self.rel_btn_bar, orient=tk.VERTICAL).pack(
+            side=tk.RIGHT, fill=tk.Y, padx=4, pady=2
+        )
 
     def _refresh_releases(self) -> None:
         self.rel_tree.pack_forget()

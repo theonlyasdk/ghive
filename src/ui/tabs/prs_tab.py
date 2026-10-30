@@ -6,7 +6,13 @@ from typing import Any, Callable, Dict, List, Optional
 
 from core import AsyncRunner, ConfigManager, GHManager
 from ui.dialogs import CreatePRDialog, PRDetailsDialog
-from ui.widgets import EmptyState, LoadingOverlay, SearchEntry
+from ui.widgets import (
+    EmptyState,
+    LoadingOverlay,
+    SearchEntry,
+    apply_sort_indicator,
+    set_menu_items_state,
+)
 
 
 class PRsTab(ttk.Frame):
@@ -63,10 +69,13 @@ class PRsTab(ttk.Frame):
         self.content_frame.pack(fill=tk.BOTH, expand=True, padx=6, pady=2)
 
         columns = ("#", "Title", "Author", "Branches", "Updated")
+        self.columns = columns
         self.tree = ttk.Treeview(self.content_frame, columns=columns, show="headings", selectmode="browse")
 
         for col in columns:
             self.tree.heading(col, text=col, command=lambda c=col: self._sort_by_column(c))
+
+        apply_sort_indicator(self.tree, self.columns, self._sort_col, self._sort_reverse)
 
         self.tree.column("#", width=60, anchor="center")
         self.tree.column("Title", width=360)
@@ -141,9 +150,29 @@ class PRsTab(ttk.Frame):
             if item:
                 self.tree.selection_set(item)
                 self._on_select()
+                self._update_context_menu_state()
                 self.context_menu.post(event.x_root, event.y_root)
 
         self.tree.bind("<Button-3>", show_menu)
+
+    def _update_context_menu_state(self) -> None:
+        has_sel = self.selected_pr is not None
+        can_merge = False
+        if has_sel:
+            is_open = self.selected_pr.get("state", "OPEN").upper() == "OPEN"
+            can_merge = is_open and not self.selected_pr.get("isDraft", False)
+        set_menu_items_state(
+            self.context_menu,
+            {
+                "View Details & Diff": has_sel,
+                "Checkout Branch Locally": has_sel,
+                "Merge Pull Request...": can_merge,
+                "Open in Browser": has_sel,
+                "Copy PR #": has_sel,
+                "Copy Title": has_sel,
+                "Copy URL": has_sel,
+            },
+        )
 
     def set_active_repo(self, repo_name: str) -> None:
         """Update active repository and refresh if changed."""
@@ -188,7 +217,7 @@ class PRsTab(ttk.Frame):
             self.set_status(f"Loaded {len(data)} pull requests for {repo}")
 
         def _on_error(exc):
-            self.set_status(f"Error fetching PRs: {exc}")
+            self.set_status(f"Error fetching PRs: {exc}", is_error=True)
             messagebox.showerror("Error", f"Failed to fetch pull requests:\n{exc}", parent=self.winfo_toplevel())
 
         def _on_complete():
@@ -212,6 +241,7 @@ class PRsTab(ttk.Frame):
         self._populate_tree()
 
     def _populate_tree(self) -> None:
+        self._apply_sort()
         for item in self.tree.get_children():
             self.tree.delete(item)
 
@@ -237,13 +267,7 @@ class PRsTab(ttk.Frame):
 
         self._update_button_states()
 
-    def _sort_by_column(self, col: str) -> None:
-        if self._sort_col == col:
-            self._sort_reverse = not self._sort_reverse
-        else:
-            self._sort_col = col
-            self._sort_reverse = False
-
+    def _sort_key(self, col: str):
         key_map = {
             "#": lambda p: p.get("number", 0),
             "Title": lambda p: p.get("title", "").lower(),
@@ -251,9 +275,23 @@ class PRsTab(ttk.Frame):
             "Branches": lambda p: p.get("headRefName", "").lower(),
             "Updated": lambda p: p.get("updatedAt", ""),
         }
+        return key_map.get(col, lambda p: "")
 
-        key_func = key_map.get(col, lambda p: "")
-        self.filtered_prs.sort(key=key_func, reverse=self._sort_reverse)
+    def _apply_sort(self) -> None:
+        self.filtered_prs.sort(
+            key=self._sort_key(self._sort_col), reverse=self._sort_reverse
+        )
+        apply_sort_indicator(
+            self.tree, self.columns, self._sort_col, self._sort_reverse
+        )
+
+    def _sort_by_column(self, col: str) -> None:
+        if self._sort_col == col:
+            self._sort_reverse = not self._sort_reverse
+        else:
+            self._sort_col = col
+            self._sort_reverse = False
+
         self._populate_tree()
 
     def _on_select(self, event=None) -> None:
@@ -278,7 +316,8 @@ class PRsTab(ttk.Frame):
 
         if has_sel:
             is_open = self.selected_pr.get("state", "OPEN").upper() == "OPEN"
-            self.merge_btn.config(state=tk.NORMAL if is_open else tk.DISABLED)
+            is_draft = bool(self.selected_pr.get("isDraft", False))
+            self.merge_btn.config(state=tk.NORMAL if is_open and not is_draft else tk.DISABLED)
         else:
             self.merge_btn.config(state=tk.DISABLED)
 

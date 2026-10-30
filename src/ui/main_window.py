@@ -1,6 +1,7 @@
 """Main window for ghive application."""
 
 from pathlib import Path
+import re
 import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import Callable, Optional, Union
@@ -12,6 +13,9 @@ from ui.theme import setup_theme
 from ui.widgets import StatusBar
 
 
+_GEOMETRY_RE = re.compile(r"^(\d+)x(\d+)([+-]\d+)([+-]\d+)$")
+
+
 class MainWindow:
     """Main application window for ghive."""
 
@@ -21,7 +25,6 @@ class MainWindow:
     ):
         self.root = tk.Tk()
         self.root.title("ghive - GitHub CLI Frontend")
-        self.root.geometry("960x660")
         self.root.minsize(640, 480)
 
         # Setup styling
@@ -33,12 +36,14 @@ class MainWindow:
         self.async_runner = AsyncRunner(self.root)
 
         self.active_repo: str = self.config.get("general", "active_repo", "")
+        self._auto_refresh_after_id = None
+        self._last_normal_geometry = ""
 
         # Build UI
         self._create_ui()
-
-        # Center on screen
-        self._center_window(960, 660)
+        self._restore_window_state()
+        self.root.bind("<Configure>", self._track_window_geometry, add="+")
+        self._schedule_auto_refresh()
 
         # Bindings & protocols
         self.root.protocol("WM_DELETE_WINDOW", self._on_closing)
@@ -60,6 +65,111 @@ class MainWindow:
             self.root.geometry(f"{width}x{height}+{max(0, cx)}+{max(0, cy)}")
         except Exception:
             pass
+
+    def _restore_window_state(self) -> None:
+        """Restore saved window geometry, maximized state, and last tab."""
+        saved_geometry = str(self.config.get("ui", "window_geometry", "") or "")
+        saved_state = self.config.get("ui", "window_state", "normal")
+        match = _GEOMETRY_RE.match(saved_geometry)
+
+        if match:
+            width, height, x, y = (int(value) for value in match.groups())
+            screen_width = self.root.winfo_screenwidth()
+            screen_height = self.root.winfo_screenheight()
+            width = max(640, min(width, screen_width))
+            height = max(480, min(height, screen_height))
+            x = max(-width + 100, min(x, screen_width - 100))
+            y = max(0, min(y, screen_height - 100))
+            self.root.geometry(f"{width}x{height}+{x}+{y}")
+        else:
+            self._center_window(960, 660)
+
+        self.root.update_idletasks()
+        self._last_normal_geometry = self.root.winfo_geometry()
+
+        if saved_state == "zoomed":
+            try:
+                self.root.state("zoomed")
+            except tk.TclError:
+                pass
+
+        last_tab = self.config.get("ui", "last_tab", "")
+        if last_tab:
+            for tab_id in self.notebook.tabs():
+                if self.notebook.tab(tab_id, "text") == last_tab:
+                    if self.notebook.select() != tab_id:
+                        self.notebook.select(tab_id)
+                    break
+
+    def _track_window_geometry(self, event=None) -> None:
+        """Keep the last unmaximized geometry so it can be restored later."""
+        if event is not None and event.widget is not self.root:
+            return
+        try:
+            if self.root.state() == "normal":
+                self._last_normal_geometry = self.root.winfo_geometry()
+        except tk.TclError:
+            pass
+
+    def _save_window_state(self) -> None:
+        """Persist window geometry, maximized state, and the active tab."""
+        try:
+            state = self.root.state()
+        except tk.TclError:
+            state = "normal"
+        if state not in ("normal", "zoomed"):
+            state = "normal"
+
+        geometry = self.root.winfo_geometry() if state == "normal" else self._last_normal_geometry
+        if not geometry:
+            geometry = self.root.winfo_geometry()
+
+        last_tab = ""
+        try:
+            current = self.notebook.select()
+            if current:
+                last_tab = self.notebook.tab(current, "text")
+        except tk.TclError:
+            pass
+
+        self.config.update(
+            "ui",
+            {
+                "window_geometry": geometry,
+                "window_state": state,
+                "last_tab": last_tab,
+            },
+        )
+
+    def _schedule_auto_refresh(self) -> None:
+        """(Re)schedule the optional periodic refresh of the current tab."""
+        if self._auto_refresh_after_id is not None:
+            try:
+                self.root.after_cancel(self._auto_refresh_after_id)
+            except tk.TclError:
+                pass
+            self._auto_refresh_after_id = None
+
+        try:
+            interval = int(self.config.get("general", "auto_refresh_interval", 0) or 0)
+        except (TypeError, ValueError):
+            interval = 0
+
+        if interval > 0:
+            self._auto_refresh_after_id = self.root.after(
+                interval * 1000, self._auto_refresh_tick
+            )
+
+    def _auto_refresh_tick(self) -> None:
+        self._auto_refresh_after_id = None
+        try:
+            # Avoid fighting with modal dialogs that currently own the grab.
+            if self.root.grab_current() is None:
+                self._refresh_current_tab()
+        except Exception:
+            pass
+        finally:
+            self._schedule_auto_refresh()
 
     def _create_ui(self) -> None:
         self._create_menu()
@@ -236,6 +346,7 @@ class MainWindow:
     def _on_preferences_changed(self) -> None:
         self.set_status("Preferences updated")
         self._check_auth()
+        self._schedule_auto_refresh()
 
     def _show_auth_dialog(self) -> None:
         AuthDialog(self.root, self.gh_manager, on_auth_change=self._refresh_all)
@@ -264,6 +375,13 @@ class MainWindow:
         AboutDialog(self.root).show()
 
     def _on_closing(self) -> None:
+        if self._auto_refresh_after_id is not None:
+            try:
+                self.root.after_cancel(self._auto_refresh_after_id)
+            except tk.TclError:
+                pass
+            self._auto_refresh_after_id = None
+        self._save_window_state()
         self.root.destroy()
 
     def _check_signals(self) -> None:

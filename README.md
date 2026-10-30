@@ -16,6 +16,25 @@ Inspired by clean desktop utility aesthetics, `ghive` provides a fast, lightweig
 - **Responsive Loading**: Repository, issue, pull request, workflow, and gist tabs load data asynchronously and show a loading state on first use.
 - **External Tool Detection & Audit Logging**: Automatically detects `gh` and `git` binaries with quick download links and full audit logging in `~/.ghive/audit.log`.
 
+## Screenshots
+
+All screenshots below use mock data for demonstration.
+
+### Repositories
+![Repositories tab](screenshots/repositories.png)
+
+### Issues
+![Issues tab](screenshots/issues.png)
+
+### Pull Requests
+![Pull Requests tab](screenshots/pull_requests.png)
+
+### Actions
+![Actions tab](screenshots/actions.png)
+
+### Gists
+![Gists tab](screenshots/gists.png)
+
 ## Dependencies & Installation
 
 ### 1. Python 3 (3.8 or higher)

@@ -99,7 +99,7 @@ class AuthDialog:
 
         token_help = tk.Label(
             login_box,
-            text="Generate a Personal Access Token (classic or fine-grained) with 'repo', 'read:org', and 'workflow' scopes.",
+            text="Generate a Personal Access Token (classic or fine-grained) with 'repo', 'read:org', 'workflow', and 'gist' scopes.",
             font=("Segoe UI", 8),
             fg="#57606a",
             wraplength=420,

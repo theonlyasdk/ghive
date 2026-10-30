@@ -46,6 +46,11 @@ class ConfigManager:
                 "confirm_close_pr": True,
                 "confirm_merge_pr": True,
             },
+            "ui": {
+                "window_geometry": "",
+                "window_state": "normal",
+                "last_tab": "Repositories",
+            },
         }
 
         self.load()
@@ -102,6 +107,14 @@ class ConfigManager:
             if not isinstance(confs.get(key), bool):
                 confs[key] = True
 
+        ui = self.settings.setdefault("ui", {})
+        if not isinstance(ui.get("window_geometry"), str):
+            ui["window_geometry"] = ""
+        if ui.get("window_state") not in ("normal", "zoomed"):
+            ui["window_state"] = "normal"
+        if not isinstance(ui.get("last_tab"), str):
+            ui["last_tab"] = "Repositories"
+
     def _deep_merge(self, base: dict, update: dict) -> None:
         """Recursively merge values from update into base."""
         for key, value in update.items():
@@ -128,4 +141,10 @@ class ConfigManager:
         if section not in self.settings:
             self.settings[section] = {}
         self.settings[section][key] = value
+        self.save()
+
+    def update(self, section: str, values: Dict[str, Any]) -> None:
+        """Update multiple values in a section and save once."""
+        target = self.settings.setdefault(section, {})
+        target.update(values)
         self.save()

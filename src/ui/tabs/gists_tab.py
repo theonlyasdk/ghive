@@ -6,7 +6,13 @@ from typing import Any, Callable, Dict, List, Optional
 
 from core import AsyncRunner, ConfigManager, GHManager
 from ui.dialogs import CloneRepoDialog, CreateGistDialog, GistDetailsDialog
-from ui.widgets import EmptyState, LoadingOverlay, SearchEntry
+from ui.widgets import (
+    EmptyState,
+    LoadingOverlay,
+    SearchEntry,
+    apply_sort_indicator,
+    set_menu_items_state,
+)
 
 
 class GistsTab(ttk.Frame):
@@ -55,10 +61,13 @@ class GistsTab(ttk.Frame):
         self.content_frame.pack(fill=tk.BOTH, expand=True, padx=6, pady=2)
 
         columns = ("ID", "Description", "Files", "Visibility", "Updated")
+        self.columns = columns
         self.tree = ttk.Treeview(self.content_frame, columns=columns, show="headings", selectmode="browse")
 
         for col in columns:
             self.tree.heading(col, text=col, command=lambda c=col: self._sort_by_column(c))
+
+        apply_sort_indicator(self.tree, self.columns, self._sort_col, self._sort_reverse)
 
         self.tree.column("ID", width=110, anchor="center")
         self.tree.column("Description", width=340)
@@ -107,8 +116,17 @@ class GistsTab(ttk.Frame):
         self.web_btn = ttk.Button(self.btn_bar, text="Open in Browser", command=self._open_in_browser, state=tk.DISABLED)
         self.web_btn.pack(side=tk.LEFT, padx=2)
 
-        self.delete_btn = ttk.Button(self.btn_bar, text="Delete Gist...", command=self._delete_gist, state=tk.DISABLED)
-        self.delete_btn.pack(side=tk.RIGHT, padx=2)
+        self.delete_btn = ttk.Button(
+            self.btn_bar,
+            text="Delete Gist...",
+            command=self._delete_gist,
+            state=tk.DISABLED,
+            style="Danger.TButton",
+        )
+        self.delete_btn.pack(side=tk.RIGHT, padx=(8, 2))
+        ttk.Separator(self.btn_bar, orient=tk.VERTICAL).pack(
+            side=tk.RIGHT, fill=tk.Y, padx=4, pady=2
+        )
 
         self.loading_overlay = LoadingOverlay(self)
         self.content_frame.pack_forget()
@@ -132,9 +150,24 @@ class GistsTab(ttk.Frame):
             if item:
                 self.tree.selection_set(item)
                 self._on_select()
+                self._update_context_menu_state()
                 self.context_menu.post(event.x_root, event.y_root)
 
         self.tree.bind("<Button-3>", show_menu)
+
+    def _update_context_menu_state(self) -> None:
+        has_sel = self.selected_gist is not None
+        set_menu_items_state(
+            self.context_menu,
+            {
+                "View Details": has_sel,
+                "Clone Gist Locally...": has_sel,
+                "Open in Browser": has_sel,
+                "Copy Gist ID": has_sel,
+                "Copy URL": has_sel,
+                "Delete Gist...": has_sel,
+            },
+        )
 
     def refresh(self) -> None:
         """Fetch user gists asynchronously."""
@@ -158,7 +191,7 @@ class GistsTab(ttk.Frame):
             self.set_status(f"Loaded {len(data)} gists")
 
         def _on_error(exc):
-            self.set_status(f"Error fetching gists: {exc}")
+            self.set_status(f"Error fetching gists: {exc}", is_error=True)
             messagebox.showerror("Error", f"Failed to fetch gists:\n{exc}", parent=self.winfo_toplevel())
 
         def _on_complete():
@@ -184,6 +217,7 @@ class GistsTab(ttk.Frame):
         self._populate_tree()
 
     def _populate_tree(self) -> None:
+        self._apply_sort()
         for item in self.tree.get_children():
             self.tree.delete(item)
 
@@ -207,13 +241,7 @@ class GistsTab(ttk.Frame):
 
         self._update_button_states()
 
-    def _sort_by_column(self, col: str) -> None:
-        if self._sort_col == col:
-            self._sort_reverse = not self._sort_reverse
-        else:
-            self._sort_col = col
-            self._sort_reverse = False
-
+    def _sort_key(self, col: str):
         key_map = {
             "ID": lambda g: g.get("id", ""),
             "Description": lambda g: g.get("description", "").lower(),
@@ -221,9 +249,23 @@ class GistsTab(ttk.Frame):
             "Visibility": lambda g: g.get("public", False),
             "Updated": lambda g: g.get("updated_at", ""),
         }
+        return key_map.get(col, lambda g: "")
 
-        key_func = key_map.get(col, lambda g: "")
-        self.filtered_gists.sort(key=key_func, reverse=self._sort_reverse)
+    def _apply_sort(self) -> None:
+        self.filtered_gists.sort(
+            key=self._sort_key(self._sort_col), reverse=self._sort_reverse
+        )
+        apply_sort_indicator(
+            self.tree, self.columns, self._sort_col, self._sort_reverse
+        )
+
+    def _sort_by_column(self, col: str) -> None:
+        if self._sort_col == col:
+            self._sort_reverse = not self._sort_reverse
+        else:
+            self._sort_col = col
+            self._sort_reverse = False
+
         self._populate_tree()
 
     def _on_select(self, event=None) -> None:

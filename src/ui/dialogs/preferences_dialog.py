@@ -10,6 +10,16 @@ from typing import Callable, Optional
 from core import ConfigManager, DependencyManager
 
 
+AUTO_REFRESH_OPTIONS = {
+    "Off": 0,
+    "1 minute": 60,
+    "5 minutes": 300,
+    "10 minutes": 600,
+    "30 minutes": 1800,
+    "1 hour": 3600,
+}
+
+
 class PreferencesDialog:
     """Dialog allowing user to customize ghive configuration."""
 
@@ -83,6 +93,17 @@ class PreferencesDialog:
             width=10,
         )
         limit_cb.grid(row=0, column=1, sticky=tk.W, padx=10, pady=6)
+
+        ttk.Label(gen_frame, text="Auto-refresh current tab:").grid(row=1, column=0, sticky=tk.W, pady=6)
+        self.auto_refresh_var = tk.StringVar(value="Off")
+        self.auto_refresh_cb = ttk.Combobox(
+            gen_frame,
+            textvariable=self.auto_refresh_var,
+            values=list(AUTO_REFRESH_OPTIONS.keys()),
+            state="readonly",
+            width=12,
+        )
+        self.auto_refresh_cb.grid(row=1, column=1, sticky=tk.W, padx=10, pady=6)
 
         clone_frame = ttk.LabelFrame(tab, text="Default Clone Location", padding=10)
         clone_frame.pack(fill=tk.X, pady=(0, 10))
@@ -172,6 +193,22 @@ class PreferencesDialog:
         self.limit_var.set(str(self.config.get("general", "default_limit", 30)))
         self.clone_path_var.set(self.config.get("general", "default_clone_path", ""))
 
+        seconds = self.config.get("general", "auto_refresh_interval", 0)
+        try:
+            seconds = int(seconds)
+        except (TypeError, ValueError):
+            seconds = 0
+        label = next(
+            (name for name, value in AUTO_REFRESH_OPTIONS.items() if value == seconds),
+            None,
+        )
+        if label is None:
+            label = f"{seconds} seconds" if seconds > 0 else "Off"
+            values = list(self.auto_refresh_cb["values"])
+            if label not in values:
+                self.auto_refresh_cb["values"] = values + [label]
+        self.auto_refresh_var.set(label)
+
         gh_path = self.config.get("paths", "gh", "")
         if not gh_path:
             try:
@@ -259,6 +296,16 @@ class PreferencesDialog:
 
         self.config.set("general", "default_limit", limit)
         self.config.set("general", "default_clone_path", self.clone_path_var.get().strip())
+
+        refresh_label = self.auto_refresh_var.get().strip()
+        refresh_seconds = AUTO_REFRESH_OPTIONS.get(refresh_label)
+        if refresh_seconds is None:
+            try:
+                refresh_seconds = int(refresh_label.split()[0])
+            except (IndexError, ValueError):
+                refresh_seconds = 0
+        refresh_seconds = max(0, min(3600, refresh_seconds))
+        self.config.set("general", "auto_refresh_interval", refresh_seconds)
         self.config.set("paths", "gh", self.gh_path_var.get().strip())
         self.config.set("paths", "git", self.git_path_var.get().strip())
 

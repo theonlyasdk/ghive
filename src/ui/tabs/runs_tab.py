@@ -6,7 +6,12 @@ from typing import Any, Callable, Dict, List, Optional
 
 from core import AsyncRunner, ConfigManager, GHManager
 from ui.dialogs import RunDetailsDialog
-from ui.widgets import EmptyState, LoadingOverlay
+from ui.widgets import (
+    EmptyState,
+    LoadingOverlay,
+    apply_sort_indicator,
+    set_menu_items_state,
+)
 
 
 class RunsTab(ttk.Frame):
@@ -59,10 +64,13 @@ class RunsTab(ttk.Frame):
         self.content_frame.pack(fill=tk.BOTH, expand=True, padx=6, pady=2)
 
         columns = ("Run ID", "Workflow", "Event", "Branch", "Conclusion", "Created")
+        self.columns = columns
         self.tree = ttk.Treeview(self.content_frame, columns=columns, show="headings", selectmode="browse")
 
         for col in columns:
             self.tree.heading(col, text=col, command=lambda c=col: self._sort_by_column(c))
+
+        apply_sort_indicator(self.tree, self.columns, self._sort_col, self._sort_reverse)
 
         self.tree.column("Run ID", width=100, anchor="center")
         self.tree.column("Workflow", width=260)
@@ -132,9 +140,29 @@ class RunsTab(ttk.Frame):
             if item:
                 self.tree.selection_set(item)
                 self._on_select()
+                self._update_context_menu_state()
                 self.context_menu.post(event.x_root, event.y_root)
 
         self.tree.bind("<Button-3>", show_menu)
+
+    def _update_context_menu_state(self) -> None:
+        has_sel = self.selected_run is not None
+        is_active = False
+        if has_sel:
+            is_active = self.selected_run.get("status", "").lower() in (
+                "in_progress",
+                "queued",
+            )
+        set_menu_items_state(
+            self.context_menu,
+            {
+                "View Logs & Details": has_sel,
+                "Rerun Workflow": has_sel and not is_active,
+                "Cancel Run": has_sel and is_active,
+                "Open in Browser": has_sel,
+                "Copy Run ID": has_sel,
+            },
+        )
 
     def set_active_repo(self, repo_name: str) -> None:
         """Update active repository and refresh if changed."""
@@ -180,7 +208,7 @@ class RunsTab(ttk.Frame):
             self.set_status(f"Loaded {len(data)} workflow runs for {repo}")
 
         def _on_error(exc):
-            self.set_status(f"Error fetching workflow runs: {exc}")
+            self.set_status(f"Error fetching workflow runs: {exc}", is_error=True)
             messagebox.showerror("Error", f"Failed to fetch workflow runs:\n{exc}", parent=self.winfo_toplevel())
 
         def _on_complete():
@@ -192,6 +220,7 @@ class RunsTab(ttk.Frame):
         self.async_runner.run(_task, on_success=_on_success, on_error=_on_error, on_complete=_on_complete)
 
     def _populate_tree(self) -> None:
+        self._apply_sort()
         for item in self.tree.get_children():
             self.tree.delete(item)
 
@@ -217,13 +246,7 @@ class RunsTab(ttk.Frame):
 
         self._update_button_states()
 
-    def _sort_by_column(self, col: str) -> None:
-        if self._sort_col == col:
-            self._sort_reverse = not self._sort_reverse
-        else:
-            self._sort_col = col
-            self._sort_reverse = False
-
+    def _sort_key(self, col: str):
         key_map = {
             "Run ID": lambda r: r.get("databaseId", 0),
             "Workflow": lambda r: (r.get("workflowName") or r.get("name", "")).lower(),
@@ -232,9 +255,21 @@ class RunsTab(ttk.Frame):
             "Conclusion": lambda r: (r.get("conclusion") or r.get("status", "")).lower(),
             "Created": lambda r: r.get("createdAt", ""),
         }
+        return key_map.get(col, lambda r: "")
 
-        key_func = key_map.get(col, lambda r: "")
-        self.runs.sort(key=key_func, reverse=self._sort_reverse)
+    def _apply_sort(self) -> None:
+        self.runs.sort(key=self._sort_key(self._sort_col), reverse=self._sort_reverse)
+        apply_sort_indicator(
+            self.tree, self.columns, self._sort_col, self._sort_reverse
+        )
+
+    def _sort_by_column(self, col: str) -> None:
+        if self._sort_col == col:
+            self._sort_reverse = not self._sort_reverse
+        else:
+            self._sort_col = col
+            self._sort_reverse = False
+
         self._populate_tree()
 
     def _on_select(self, event=None) -> None:
@@ -254,13 +289,14 @@ class RunsTab(ttk.Frame):
         has_sel = self.selected_run is not None
         state = tk.NORMAL if has_sel else tk.DISABLED
         self.details_btn.config(state=state)
-        self.rerun_btn.config(state=state)
         self.web_btn.config(state=state)
 
         if has_sel:
-            is_in_progress = self.selected_run.get("status", "").lower() in ("in_progress", "queued")
-            self.cancel_btn.config(state=tk.NORMAL if is_in_progress else tk.DISABLED)
+            is_active = self.selected_run.get("status", "").lower() in ("in_progress", "queued")
+            self.rerun_btn.config(state=tk.DISABLED if is_active else tk.NORMAL)
+            self.cancel_btn.config(state=tk.NORMAL if is_active else tk.DISABLED)
         else:
+            self.rerun_btn.config(state=tk.DISABLED)
             self.cancel_btn.config(state=tk.DISABLED)
 
     def _view_details(self) -> None:

@@ -8,6 +8,7 @@ from .markdown_text import MarkdownText
 from .placeholder_entry import PlaceholderEntry
 from .search_entry import SearchEntry
 from .status_bar import StatusBar
+from .table_utils import apply_sort_indicator, set_menu_item_state, set_menu_items_state
 
 __all__ = [
     "SearchEntry",
@@ -18,4 +19,7 @@ __all__ = [
     "ErrorView",
     "MarkdownText",
     "CommentCard",
+    "apply_sort_indicator",
+    "set_menu_item_state",
+    "set_menu_items_state",
 ]

@@ -136,8 +136,18 @@ class ReleaseManagementDialog:
         self.download_btn = ttk.Button(asset_btns, text="Download Asset...", command=self._download_asset, state=tk.DISABLED)
         self.download_btn.pack(side=tk.LEFT, padx=2)
 
-        self.delete_asset_btn = ttk.Button(asset_btns, text="Delete Asset", command=self._delete_asset, state=tk.DISABLED)
-        self.delete_asset_btn.pack(side=tk.LEFT, padx=2)
+        self.delete_asset_btn = ttk.Button(
+            asset_btns,
+            text="Delete Asset",
+            command=self._delete_asset,
+            state=tk.DISABLED,
+            style="Danger.TButton",
+        )
+        self.delete_asset_btn.pack(side=tk.LEFT, padx=(12, 2))
+
+        ttk.Separator(asset_btns, orient=tk.VERTICAL).pack(
+            side=tk.LEFT, fill=tk.Y, padx=4, pady=2
+        )
 
         self.copy_url_btn = ttk.Button(asset_btns, text="Copy Download URL", command=self._copy_asset_url, state=tk.DISABLED)
         self.copy_url_btn.pack(side=tk.LEFT, padx=2)
@@ -146,8 +156,13 @@ class ReleaseManagementDialog:
         bottom_bar = ttk.Frame(container)
         bottom_bar.pack(fill=tk.X, side=tk.BOTTOM)
 
-        self.delete_rel_btn = ttk.Button(bottom_bar, text="Delete Release...", command=self._delete_release)
-        self.delete_rel_btn.pack(side=tk.LEFT)
+        self.delete_rel_btn = ttk.Button(
+            bottom_bar,
+            text="Delete Release...",
+            command=self._delete_release,
+            style="Danger.TButton",
+        )
+        self.delete_rel_btn.pack(side=tk.LEFT, padx=(0, 12))
 
         ttk.Button(bottom_bar, text="Close", command=self.dialog.destroy, width=10).pack(side=tk.RIGHT)
         ttk.Button(bottom_bar, text="Open in Browser", command=self._open_in_browser, width=14).pack(side=tk.RIGHT, padx=6)
